@@ -487,24 +487,26 @@ def main() -> None:
                 all_rewards.extend(rewards)
                 total_steps += steps
 
-    except Exception as exc:
+        except Exception as exc:
         print(f"FATAL: {exc}", flush=True)
         overall_success = False
 
+        finally:
+        # ✅ compute score from ALL rewards (important)
+            final_score = sum(float(r) for r in all_rewards) / max(1, len(all_rewards))
 
-# ✅ compute final score from rewards
-    final_score = sum(float(r) for r in rewards) / max(1, len(rewards))
+        # ✅ strict clamp
+            final_score = max(0.011, min(0.989, final_score))
 
-# 🔥 STRICT clamp (VERY IMPORTANT)
-    final_score = max(0.011, min(0.989, final_score))
+        # ✅ required output
+            print(json.dumps({
+                "task_id": "overall",
+                "score": float(final_score)
+            }), flush=True)
 
-# ✅ PRINT IN REQUIRED FORMAT
-    print(json.dumps({
-        "task_id": task_id,
-        "score": float(final_score)
-    }), flush=True)
-    finally:
-        print(f"[END] success={_format_done(overall_success)} steps={total_steps} rewards={','.join(all_rewards)}", flush=True)
-
+            print(
+                f"[END] success={_format_done(overall_success)} steps={total_steps} rewards={','.join(all_rewards)}",
+                flush=True
+            )
 if __name__ == "__main__":
     main()
