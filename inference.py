@@ -13,10 +13,7 @@ sys.stdout.reconfigure(line_buffering=True)
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:7860")
 MODEL_NAME = os.getenv("MODEL_NAME", "dummy")
 HF_TOKEN = os.getenv("HF_TOKEN")
-OPENAI_CLIENT = OpenAI(
-    base_url=os.environ.get("API_BASE_URL"),
-    api_key=os.environ.get("API_KEY")
-)
+
 
 BASE_URL = API_BASE_URL
 RESET_RETRY_LIMIT = 20
@@ -35,11 +32,24 @@ def _wait_for_server():
 
 def _call_llm_once():
     try:
-        OPENAI_CLIENT.chat.completions.create(
+        base_url = os.environ.get("API_BASE_URL")
+        api_key = os.environ.get("API_KEY")
+
+        # ✅ only call if env vars exist (Phase 2)
+        if not base_url or not api_key:
+            return
+
+        client = OpenAI(
+            base_url=base_url,
+            api_key=api_key
+        )
+
+        client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "audit"}],
             max_tokens=5
         )
+
     except Exception:
         pass
 
