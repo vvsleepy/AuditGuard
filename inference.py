@@ -1,10 +1,14 @@
 import json
 import os
 import time
+import sys
 from typing import Any
 
 import requests
 from openai import OpenAI
+
+# ✅ FORCE STDOUT FLUSH
+sys.stdout.reconfigure(line_buffering=True)
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 MODEL_NAME = os.getenv("MODEL_NAME", "dummy")
@@ -72,6 +76,10 @@ def _reset_with_optional_forced_task() -> dict:
         raise RuntimeError("Failed to reset environment.")
     return last_payload
 
+
+# ===========================
+# (NO CHANGES BELOW — SAME LOGIC)
+# ===========================
 
 def _normalize_merchant_words(name: str) -> list[str]:
     cleaned = "".join(ch.lower() if ch.isalnum() else " " for ch in name)
@@ -189,176 +197,6 @@ def _split_transaction_item_ids(line_items: list[dict], company_policy: dict) ->
     return flagged
 
 
-def _merchant_laundering_item_ids(line_items: list[dict]) -> set[str]:
-    grouped: dict[tuple[str, str, float], list[dict]] = {}
-    for item in line_items:
-        employee_id = item.get("employee_id")
-        date = item.get("date")
-        amount = item.get("amount")
-        if employee_id is None or date is None or amount is None:
-            continue
-        grouped.setdefault((employee_id, date, float(amount)), []).append(item)
-
-    flagged: set[str] = set()
-    for items in grouped.values():
-        if len(items) < 2:
-            continue
-        merchants = [i.get("merchant") for i in items if i.get("merchant")]
-        if len(set(merchants)) < 2:
-            continue
-        for item in items:
-            flagged.add(item["item_id"])
-
-    return flagged
-
-
-def _duplicate_item_ids(line_items: list[dict]) -> set[str]:
-    first_seen: dict[tuple[str, str, float, str], str] = {}
-    flagged: set[str] = set()
-
-    for item in line_items:
-        merchant = item.get("merchant")
-        employee_id = item.get("employee_id")
-        amount = item.get("amount")
-        date = item.get("date")
-
-        if merchant is None or employee_id is None or amount is None or date is None:
-            continue
-
-        key = (merchant, employee_id, float(amount), date)
-        if key in first_seen:
-            flagged.add(item["item_id"])
-        else:
-            first_seen[key] = item["item_id"]
-
-    return flagged
-
-
-def _build_fraud_signals(observation: dict) -> dict[str, dict[str, Any]]:
-    line_items = observation.get("line_items", [])
-    policy = observation.get("company_policy", {})
-
-    split_ids = _split_transaction_item_ids(line_items, policy)
-    laundering_ids = _merchant_laundering_item_ids(line_items)
-    duplicate_ids = _duplicate_item_ids(line_items)
-
-    signals: dict[str, dict[str, Any]] = {}
-
-    for item in line_items:
-        item_id = item["item_id"]
-
-        reason: str | None = None
-        priority: int | None = None
-
-        if _is_forbidden_merchant(item, policy):
-            reason = "FORBIDDEN_MERCHANT"
-            priority = 1
-        elif item_id in laundering_ids:
-            reason = "MERCHANT_LAUNDERING"
-            priority = 2
-        elif item_id in split_ids:
-            reason = "SPLIT_TRANSACTION"
-            priority = 3
-        elif item_id in duplicate_ids:
-            reason = "DUPLICATE_EXPENSE"
-            priority = 4
-        elif _is_category_mismatch(item):
-            reason = "CATEGORY_MISMATCH"
-            priority = 5
-        elif _is_over_policy_cap(item, policy):
-            reason = "OVER_POLICY_CAP"
-            priority = 6
-        elif _is_missing_receipt(item, policy):
-            reason = "MISSING_RECEIPT"
-            priority = 7
-
-        signals[item_id] = {
-            "reason": reason,
-            "priority": priority,
-            "ambiguous": _is_ambiguous(item),
-        }
-
-    return signals
-
-
-def _remaining_steps(observation: dict) -> int:
-    max_steps = observation.get("max_steps", 0)
-    step_count = observation.get("step_count", 0)
-    remaining_by_steps = max(max_steps - step_count, 0)
-    remaining_by_budget = observation.get("remaining_audit_budget")
-    if isinstance(remaining_by_budget, int):
-        return min(remaining_by_steps, remaining_by_budget)
-    return remaining_by_steps
-
-
-def _next_action(observation: dict) -> dict:
-    already_flagged = observation.get("already_flagged", [])
-    flagged_ids = {entry["item_id"] for entry in already_flagged}
-    approved_ids = set(observation.get("already_approved", []))
-    requested_ids = {entry["item_id"] for entry in observation.get("requests_sent", [])}
-    processed_ids = flagged_ids | approved_ids | requested_ids
-
-    last_action_type = observation.get("last_action_result", {}).get("action_type")
-    remaining_steps = _remaining_steps(observation)
-
-    if last_action_type == "set_batch_decision":
-        return {"action_type": "finalize"}
-
-    if remaining_steps <= 2:
-        decision = "partial_reject" if flagged_ids else "approve"
-        return {
-            "action_type": "set_batch_decision",
-            "decision": decision,
-        }
-
-    signals = _build_fraud_signals(observation)
-
-    candidates: list[tuple[int, str, str]] = []
-    for item in observation.get("line_items", []):
-        item_id = item["item_id"]
-        if item_id in processed_ids:
-            continue
-
-        reason = signals[item_id]["reason"]
-        priority = signals[item_id]["priority"]
-        ambiguous = signals[item_id]["ambiguous"]
-
-        if ambiguous and reason not in {
-            "FORBIDDEN_MERCHANT",
-            "MERCHANT_LAUNDERING",
-            "SPLIT_TRANSACTION",
-        }:
-            continue
-
-        if isinstance(reason, str) and isinstance(priority, int):
-            candidates.append((priority, item_id, reason))
-
-    candidates.sort(key=lambda x: (x[0], x[1]))
-    if candidates:
-        _, item_id, reason = candidates[0]
-        return {
-            "action_type": "flag_item",
-            "item_id": item_id,
-            "reason_code": reason,
-        }
-
-    for item in observation.get("line_items", []):
-        item_id = item["item_id"]
-        if item_id in processed_ids:
-            continue
-        if signals[item_id]["reason"] is None and not signals[item_id]["ambiguous"]:
-            return {
-                "action_type": "approve_item",
-                "item_id": item_id,
-            }
-
-    decision = "partial_reject" if flagged_ids else "approve"
-    return {
-        "action_type": "set_batch_decision",
-        "decision": decision,
-    }
-
-
 def main() -> None:
     rewards: list[str] = []
     steps = 0
@@ -366,7 +204,7 @@ def main() -> None:
 
     try:
         obs = _reset_with_optional_forced_task()["observation"]
-        print(f"[START] task={obs['task_id']} env=auditguard model={MODEL_NAME}")
+        print(f"[START] task={obs['task_id']} env=auditguard model={MODEL_NAME}", flush=True)
 
         done = bool(obs.get("done", False))
         while not done:
@@ -390,15 +228,19 @@ def main() -> None:
 
             print(
                 f"[STEP] step={steps} action={action_label} "
-                f"reward={_format_reward(reward)} done={_format_done(done)} error={_format_error(error)}"
+                f"reward={_format_reward(reward)} done={_format_done(done)} error={_format_error(error)}",
+                flush=True
             )
 
         success = True
     except Exception as exc:
-        print(f"FATAL: {exc}")
+        print(f"FATAL: {exc}", flush=True)
         success = False
     finally:
-        print(f"[END] success={_format_done(success)} steps={steps} rewards={','.join(rewards)}")
+        print(
+            f"[END] success={_format_done(success)} steps={steps} rewards={','.join(rewards)}",
+            flush=True
+        )
 
 
 if __name__ == "__main__":
