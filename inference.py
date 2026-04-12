@@ -7,7 +7,7 @@ import requests
 from openai import OpenAI
 import sys
 
-# ✅ FIX 1: force stdout flushing
+# ✅ force stdout flushing
 sys.stdout.reconfigure(line_buffering=True)
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:7860")
@@ -18,6 +18,17 @@ OPENAI_CLIENT = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN) if HF_TOKEN else
 BASE_URL = API_BASE_URL
 RESET_RETRY_LIMIT = 20
 COMMON_MERCHANT_WORDS = {"tech", "supplies", "store", "office", "supply"}
+
+
+# ✅ NEW FIX: wait for server
+def _wait_for_server():
+    for _ in range(20):
+        try:
+            requests.get(f"{BASE_URL}/docs", timeout=1)
+            return
+        except:
+            time.sleep(0.5)
+    raise RuntimeError("Server not ready")
 
 
 def _format_done(value: bool) -> str:
@@ -367,12 +378,19 @@ def main() -> None:
     rewards: list[str] = []
     steps = 0
     success = False
+    task_id = "unknown"
 
     try:
-        obs = _reset_with_optional_forced_task()["observation"]
-        print(f"[START] task={obs['task_id']} env=auditguard model={MODEL_NAME}", flush=True)
+        _wait_for_server()  # ✅ FIX
+
+        obs_payload = _reset_with_optional_forced_task()
+        obs = obs_payload["observation"]
+        task_id = obs.get("task_id", "unknown")
+
+        print(f"[START] task={task_id} env=auditguard model={MODEL_NAME}", flush=True)
 
         done = bool(obs.get("done", False))
+
         while not done:
             action = _next_action(obs)
             steps += 1
@@ -399,9 +417,12 @@ def main() -> None:
             )
 
         success = True
+
     except Exception as exc:
+        print(f"[START] task={task_id} env=auditguard model={MODEL_NAME}", flush=True)
         print(f"FATAL: {exc}", flush=True)
         success = False
+
     finally:
         print(f"[END] success={_format_done(success)} steps={steps} rewards={','.join(rewards)}", flush=True)
 

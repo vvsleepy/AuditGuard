@@ -20,4 +20,4 @@ COPY . /app
 EXPOSE 7860
 
 # ✅ ONLY SERVER
-CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD bash -c "uvicorn server.app:app --host 0.0.0.0 --port 7860 & sleep 5 && python inference.py"
