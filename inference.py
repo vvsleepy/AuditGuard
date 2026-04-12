@@ -491,6 +491,18 @@ def main() -> None:
         print(f"FATAL: {exc}", flush=True)
         overall_success = False
 
+
+# ✅ compute final score from rewards
+    final_score = sum(float(r) for r in rewards) / max(1, len(rewards))
+
+# 🔥 STRICT clamp (VERY IMPORTANT)
+f   inal_score = max(0.011, min(0.989, final_score))
+
+# ✅ PRINT IN REQUIRED FORMAT
+    print(json.dumps({
+        "task_id": task_id,
+        "score": float(final_score)
+    }), flush=True)
     finally:
         print(f"[END] success={_format_done(overall_success)} steps={total_steps} rewards={','.join(all_rewards)}", flush=True)
 
