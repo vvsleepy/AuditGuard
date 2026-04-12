@@ -1,17 +1,13 @@
 import json
 import os
 import time
-from typing import Any
-
 import requests
-from openai import OpenAI
 import sys
 from pathlib import Path
-import sys
-import os
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(line_buffering=True)
+# if hasattr(sys.stdout, "reconfigure"):
+#     sys.stdout.reconfigure(line_buffering=True)
+
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 
