@@ -6,6 +6,22 @@ from typing import Any
 import requests
 from openai import OpenAI
 import sys
+from pathlib import Path
+
+def _get_all_task_files():
+    task_file = os.getenv("AUDITGUARD_TASK_FILE")
+
+    base_dir = Path(__file__).parent / "data"
+
+    # 👉 agar specific task diya hai → wahi run karo
+    if task_file:
+        return [task_file]
+
+    # 👉 warna ALL tasks run karo (THIS IS IMPORTANT)
+    return [
+    f.name for f in base_dir.glob("*.json")
+    if f.name.startswith("task_")
+    ]
 
 # ✅ force stdout flushing
 sys.stdout.reconfigure(line_buffering=True)
@@ -398,58 +414,79 @@ def _next_action(observation: dict) -> dict:
 
 
 def main() -> None:
-    rewards: list[str] = []
-    steps = 0
-    success = False
-    task_id = "unknown"
+    all_rewards = []
+    total_steps = 0
+    overall_success = True
 
     try:
         _wait_for_server()
-        _call_llm_once()  # ✅ FIX
+        _call_llm_once()
 
-        obs_payload = _reset_with_optional_forced_task()
-        obs = obs_payload["observation"]
-        task_id = obs.get("task_id", "unknown")
+        task_files = _get_all_task_files()
 
-        print(f"[START] task={task_id} env=auditguard model={MODEL_NAME}", flush=True)
+        for task_file in task_files:
+            rewards: list[str] = []
+            steps = 0
+            success = False
+            task_id = "unknown"
 
-        done = bool(obs.get("done", False))
+            try:
+                # 🔥 set env dynamically
+                os.environ["AUDITGUARD_TASK_FILE"] = task_file
 
-        while not done:
-            action = _next_action(obs)
-            steps += 1
+                obs_payload = _reset_with_optional_forced_task()
+                obs = obs_payload["observation"]
+                task_id = obs.get("task_id", "unknown")
 
-            action_type = action["action_type"]
-            if action_type in {"flag_item", "approve_item", "request_info"}:
-                action_label = f"{action_type}({action['item_id']})"
-            else:
-                action_label = action_type
+                print(f"[START] task={task_id} env=auditguard model={MODEL_NAME}", flush=True)
 
-            res = _post_json("/step", {"action": action})
-            obs = res["observation"]
-            reward = float(res["reward"])
-            done = bool(res["done"])
-            info = res.get("info", {})
-            error = info.get("error")
+                done = bool(obs.get("done", False))
 
-            rewards.append(_format_reward(reward))
+                while not done:
+                    action = _next_action(obs)
+                    steps += 1
 
-            print(
-                f"[STEP] step={steps} action={action_label} "
-                f"reward={_format_reward(reward)} done={_format_done(done)} error={_format_error(error)}",
-                flush=True
-            )
+                    action_type = action["action_type"]
+                    if action_type in {"flag_item", "approve_item", "request_info"}:
+                        action_label = f"{action_type}({action['item_id']})"
+                    else:
+                        action_label = action_type
 
-        success = True
+                    res = _post_json("/step", {"action": action})
+                    obs = res["observation"]
+                    reward = float(res["reward"])
+                    done = bool(res["done"])
+                    info = res.get("info", {})
+                    error = info.get("error")
+
+                    rewards.append(_format_reward(reward))
+
+                    print(
+                        f"[STEP] step={steps} action={action_label} "
+                        f"reward={_format_reward(reward)} done={_format_done(done)} error={_format_error(error)}",
+                        flush=True
+                    )
+
+                success = True
+
+            except Exception as exc:
+                print(f"[START] task={task_id} env=auditguard model={MODEL_NAME}", flush=True)
+                print(f"FATAL: {exc}", flush=True)
+                success = False
+                overall_success = False
+
+            finally:
+                print(f"[END] success={_format_done(success)} steps={steps} rewards={','.join(rewards)}", flush=True)
+
+                all_rewards.extend(rewards)
+                total_steps += steps
 
     except Exception as exc:
-        print(f"[START] task={task_id} env=auditguard model={MODEL_NAME}", flush=True)
         print(f"FATAL: {exc}", flush=True)
-        success = False
+        overall_success = False
 
     finally:
-        print(f"[END] success={_format_done(success)} steps={steps} rewards={','.join(rewards)}", flush=True)
-
+        print(f"[END] success={_format_done(overall_success)} steps={total_steps} rewards={','.join(all_rewards)}", flush=True)
 
 if __name__ == "__main__":
     main()
