@@ -393,7 +393,7 @@ def main() -> None:
 
         task_files = _get_all_task_files()
 
-        for task_file in task_files:               # ✅ FIX 1: loop is inside the outer try
+        for task_file in task_files:
             rewards: list[str] = []
             steps = 0
             task_id = "unknown"
@@ -405,8 +405,7 @@ def main() -> None:
                 obs = obs_payload["observation"]
                 task_id = obs.get("task_id", "unknown")
 
-                print(f"[START] task={task_id}", flush=True)
-
+                print(f"[START] task={task_id} env=auditguard model=dummy", flush=True)
                 done = bool(obs.get("done", False))
 
                 while not done:
@@ -433,16 +432,22 @@ def main() -> None:
 
                     rewards.append(_format_reward(reward))
 
-                    print(f"[STEP] step={steps} reward={_format_reward(reward)}", flush=True)
+                    print(
+                        f"[STEP] step={steps} action={action_label} "
+                        f"reward={_format_reward(reward)} done={_format_done(done)} error={_format_error(error)}",
+                        flush=True
+                    )
+
                 task_score = sum(float(r) for r in rewards) / max(1, len(rewards))
                 task_score = max(0.011, min(0.989, task_score))
 
                 print(f"[END] task={task_id} score={format(task_score, '.2f')} steps={steps}", flush=True)
-            except Exception as task_exc:          # ✅ FIX 2: per-task exception handler
+
+            except Exception as task_exc:
                 print(f"[ERROR] task={task_id} error={task_exc}", flush=True)
                 overall_success = False
 
-            finally:                               # ✅ FIX 3: accumulate after each task
+            finally:
                 all_rewards.extend(rewards)
                 total_steps += steps
 
@@ -450,7 +455,7 @@ def main() -> None:
         print(f"FATAL: {exc}", flush=True)
         overall_success = False
 
-    finally:                                       # ✅ FIX 4: outer finally for final summary
+    finally:
         final_score = sum(float(r) for r in all_rewards) / max(1, len(all_rewards))
         final_score = max(0.011, min(0.989, final_score))
 
@@ -459,10 +464,10 @@ def main() -> None:
         #     "score": float(final_score)
         # }), flush=True)
 
-        # print(
-        #     f"[END] success={_format_done(overall_success)} steps={total_steps} rewards={','.join(all_rewards)}",
-        #     flush=True
-        # )
+        print(
+            f"[END] success={_format_done(overall_success)} steps={total_steps} rewards={','.join(all_rewards)}",
+            flush=True
+        )
 
 
 if __name__ == "__main__":
