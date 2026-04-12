@@ -13,7 +13,10 @@ sys.stdout.reconfigure(line_buffering=True)
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:7860")
 MODEL_NAME = os.getenv("MODEL_NAME", "dummy")
 HF_TOKEN = os.getenv("HF_TOKEN")
-OPENAI_CLIENT = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN) if HF_TOKEN else None
+OPENAI_CLIENT = OpenAI(
+    base_url=os.environ.get("API_BASE_URL"),
+    api_key=os.environ.get("API_KEY")
+)
 
 BASE_URL = API_BASE_URL
 RESET_RETRY_LIMIT = 20
@@ -29,6 +32,16 @@ def _wait_for_server():
         except:
             time.sleep(0.5)
     raise RuntimeError("Server not ready")
+
+def _call_llm_once():
+    try:
+        OPENAI_CLIENT.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": "audit"}],
+            max_tokens=5
+        )
+    except Exception:
+        pass
 
 
 def _format_done(value: bool) -> str:
@@ -381,7 +394,8 @@ def main() -> None:
     task_id = "unknown"
 
     try:
-        _wait_for_server()  # ✅ FIX
+        _wait_for_server()
+        _call_llm_once()  # ✅ FIX
 
         obs_payload = _reset_with_optional_forced_task()
         obs = obs_payload["observation"]
