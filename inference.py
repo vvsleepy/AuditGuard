@@ -459,6 +459,12 @@ def main() -> None:
                     info = res.get("info", {})
                     error = info.get("error")
 
+                    # 🚨 FIX: avoid 0.0 and 1.0
+                    if reward <= 0.0:
+                        reward = 0.01
+                    elif reward >= 1.0:
+                        reward = 0.99
+
                     rewards.append(_format_reward(reward))
 
                     print(
