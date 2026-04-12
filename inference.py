@@ -1,32 +1,11 @@
 import json
 import os
 import time
+from typing import Any
+
 import requests
-import sys
-from pathlib import Path
 
-# if hasattr(sys.stdout, "reconfigure"):
-#     sys.stdout.reconfigure(line_buffering=True)
-
-
-os.environ["PYTHONUNBUFFERED"] = "1"
-
-def _get_all_task_files():
-    task_file = os.getenv("AUDITGUARD_TASK_FILE")
-
-    base_dir = Path(__file__).parent / "data"
-
-    if task_file:
-        return [task_file]
-
-    return [
-        f.name for f in base_dir.glob("*.json")
-        if f.name.startswith("task_")
-    ]
-
-sys.stdout.reconfigure(line_buffering=True)
-
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:7860")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 MODEL_NAME = os.getenv("MODEL_NAME", "dummy")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
@@ -35,33 +14,14 @@ RESET_RETRY_LIMIT = 20
 COMMON_MERCHANT_WORDS = {"tech", "supplies", "store", "office", "supply"}
 
 
-def _wait_for_server():
-    for _ in range(60):  # wait longer
+def _wait_for_server() -> None:
+    for _ in range(60):
         try:
             requests.get(f"{BASE_URL}/docs", timeout=2)
             return
-        except:
+        except Exception:
             time.sleep(1)
-
-    # DO NOT CRASH
     return
-
-# def _call_llm_once():
-#     try:
-#         base_url = os.environ.get("API_BASE_URL")
-#         api_key = os.environ.get("API_KEY")
-
-#         if not base_url or not api_key:
-#             return
-
-#         client = OpenAI(base_url=base_url, api_key=api_key)
-#         client.chat.completions.create(
-#             model="gpt-3.5-turbo",
-#             messages=[{"role": "user", "content": "audit"}],
-#             max_tokens=5
-#         )
-#     except Exception:
-#         pass
 
 
 def _format_done(value: bool) -> str:
@@ -74,6 +34,14 @@ def _format_error(value: str | None) -> str:
 
 def _format_reward(value: float) -> str:
     return format(value, ".2f")
+
+
+def format_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def format_float(value: float) -> str:
+    return f"{value:.2f}"
 
 
 def _post_json(path: str, payload: dict | None = None) -> dict:
@@ -102,9 +70,7 @@ def _load_requested_task_id(task_file: str) -> str:
 
 
 def _reset_with_optional_forced_task() -> dict:
-    task_file = os.getenv("AUDITGUARD_TASK_FILE")
-    if not task_file:
-        return _post_json("/reset")
+    task_file = os.getenv("AUDITGUARD_TASK_FILE", "task_medium_001.json")
 
     expected_task_id = _load_requested_task_id(task_file)
     last_payload: dict[str, Any] | None = None
@@ -335,146 +301,81 @@ def _next_action(observation: dict) -> dict:
     already_flagged = observation.get("already_flagged", [])
     flagged_ids = {entry["item_id"] for entry in already_flagged}
     approved_ids = set(observation.get("already_approved", []))
-    requested_ids = {entry["item_id"] for entry in observation.get("requests_sent", [])}
-    processed_ids = flagged_ids | approved_ids | requested_ids
-
-    last_action_type = observation.get("last_action_result", {}).get("action_type")
-    remaining_steps = _remaining_steps(observation)
-
-    if last_action_type == "set_batch_decision":
-        return {"action_type": "finalize"}
-
-    if remaining_steps <= 2:
-        decision = "partial_reject" if flagged_ids else "approve"
-        return {"action_type": "set_batch_decision", "decision": decision}
+    processed_ids = flagged_ids | approved_ids
+    allowed_actions = set(observation.get("allowed_actions", []))
 
     signals = _build_fraud_signals(observation)
 
-    candidates: list[tuple[int, str, str]] = []
     for item in observation.get("line_items", []):
         item_id = item["item_id"]
         if item_id in processed_ids:
             continue
 
         reason = signals[item_id]["reason"]
-        priority = signals[item_id]["priority"]
-        ambiguous = signals[item_id]["ambiguous"]
 
-        if ambiguous and reason not in {
-            "FORBIDDEN_MERCHANT",
-            "MERCHANT_LAUNDERING",
-            "SPLIT_TRANSACTION",
-        }:
+        if isinstance(reason, str):
+            action = {
+                "action_type": "flag_item",
+                "item_id": item_id,
+                "reason_code": reason,
+            }
+            if action["action_type"] in allowed_actions:
+                return action
             continue
 
-        if isinstance(reason, str) and isinstance(priority, int):
-            candidates.append((priority, item_id, reason))
+        action = {
+            "action_type": "approve_item",
+            "item_id": item_id,
+        }
+        if action["action_type"] in allowed_actions:
+            return action
 
-    candidates.sort(key=lambda x: (x[0], x[1]))
-    if candidates:
-        _, item_id, reason = candidates[0]
-        return {"action_type": "flag_item", "item_id": item_id, "reason_code": reason}
-
-    for item in observation.get("line_items", []):
-        item_id = item["item_id"]
-        if item_id in processed_ids:
-            continue
-        if signals[item_id]["reason"] is None and not signals[item_id]["ambiguous"]:
-            return {"action_type": "approve_item", "item_id": item_id}
-
-    decision = "partial_reject" if flagged_ids else "approve"
-    return {"action_type": "set_batch_decision", "decision": decision}
+    if "finalize" in allowed_actions:
+        return {"action_type": "finalize"}
+    return {"action_type": "finalize"}
 
 
 def main() -> None:
-    all_rewards: list[str] = []
-    total_steps = 0
-    overall_success = True
+    rewards: list[str] = []
+    steps = 0
+    task_id = "unknown"
+    score = 0.00
 
     try:
         _wait_for_server()
-        # _call_llm_once()
+        obs_payload = _reset_with_optional_forced_task()
+        obs = obs_payload["observation"]
+        task_id = obs.get("task_id", _load_requested_task_id(os.getenv("AUDITGUARD_TASK_FILE", "task_medium_001.json")))
+        print(f"[START] task={task_id} env=auditguard model={MODEL_NAME}", flush=True)
 
-        task_files = _get_all_task_files()
+        done = bool(obs.get("done", False))
+        while not done:
+            action = _next_action(obs)
+            steps += 1
 
-        for task_file in task_files:
-            rewards: list[str] = []
-            steps = 0
-            task_id = "unknown"
+            action_type = action["action_type"]
+            if action_type in {"flag_item", "approve_item", "request_info"}:
+                action_label = f"{action_type}({action['item_id']})"
+            else:
+                action_label = action_type
 
-            try:
-                os.environ["AUDITGUARD_TASK_FILE"] = task_file
+            res = _post_json("/step", {"action": action})
+            obs = res["observation"]
+            reward = float(res["reward"])
+            done = bool(res["done"])
+            error = _format_error(res.get("info", {}).get("error"))
 
-                obs_payload = _reset_with_optional_forced_task()
-                obs = obs_payload["observation"]
-                task_id = obs.get("task_id", "unknown")
-                print(f"[START] task={task_id} env=auditguard model=dummy", flush=True)
-                done = bool(obs.get("done", False))
+            rewards.append(format_float(reward))
+            print(
+                f"[STEP] step={steps} action={action_label} reward={format_float(reward)} done={format_bool(done)} error={error}",
+                flush=True,
+            )
 
-                while not done:
-                    action = _next_action(obs)
-                    steps += 1
-
-                    action_type = action["action_type"]
-                    if action_type in {"flag_item", "approve_item", "request_info"}:
-                        action_label = f"{action_type}({action['item_id']})"
-                    else:
-                        action_label = action_type
-
-                    res = _post_json("/step", {"action": action})
-                    obs = res["observation"]
-                    reward = float(res["reward"])
-                    done = bool(res["done"])
-                    info = res.get("info", {})
-                    error = info.get("error")
-
-                    if reward <= 0.0:
-                        reward = 0.01
-                    elif reward >= 1.0:
-                        reward = 0.99
-
-                    rewards.append(_format_reward(reward))
-
-                    print(
-                        f"[STEP] step={steps} action={action_label} "
-                        f"reward={_format_reward(reward)} done={_format_done(done)} error={_format_error(error)}",
-                        flush=True
-                    )
-
-                task_score = sum(float(r) for r in rewards) / max(1, len(rewards))
-                task_score = max(0.011, min(0.989, task_score))
-
-                print(f"[END] task={task_id} score={format(task_score, '.2f')} steps={steps}", flush=True)
-
-            except Exception as task_exc:
-                print(f"[ERROR] task={task_id} error={task_exc}", flush=True)
-                overall_success = False
-
-            finally:
-                all_rewards.extend(rewards)
-                total_steps += steps
-
-    except Exception as exc:
-        print(f"FATAL: {exc}", flush=True)
-        overall_success = False
+        score = sum(float(value) for value in rewards) / max(1, len(rewards))
 
     finally:
-        final_score = sum(float(r) for r in all_rewards) / max(1, len(all_rewards))
-        final_score = max(0.011, min(0.989, final_score))
-
-        # print(json.dumps({
-        #     "task_id": "overall",
-        #     "score": float(final_score)
-        # }), flush=True)
-
-        print(
-            f"[END] success={_format_done(overall_success)} steps={total_steps} rewards={','.join(all_rewards)}",
-            flush=True
-        )
+        print(f"[END] task={task_id} score={format_float(score)} steps={steps}", flush=True)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception:
-        print("[END] success=false steps=0 rewards=", flush=True)
+    main()
