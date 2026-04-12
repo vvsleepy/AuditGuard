@@ -475,17 +475,7 @@ def main() -> None:
 
                 success = True
 
-            except Exception as exc:
-                print(f"[START] task={task_id} env=auditguard model={MODEL_NAME}", flush=True)
-                print(f"FATAL: {exc}", flush=True)
-                success = False
-                overall_success = False
 
-            finally:
-                print(f"[END] success={_format_done(success)} steps={steps} rewards={','.join(rewards)}", flush=True)
-
-                all_rewards.extend(rewards)
-                total_steps += steps
 
         except Exception as exc:
         print(f"FATAL: {exc}", flush=True)
