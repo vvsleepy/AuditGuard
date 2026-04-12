@@ -496,7 +496,7 @@ def main() -> None:
     final_score = sum(float(r) for r in rewards) / max(1, len(rewards))
 
 # 🔥 STRICT clamp (VERY IMPORTANT)
-f   inal_score = max(0.011, min(0.989, final_score))
+    final_score = max(0.011, min(0.989, final_score))
 
 # ✅ PRINT IN REQUIRED FORMAT
     print(json.dumps({
