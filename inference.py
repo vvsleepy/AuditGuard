@@ -13,30 +13,25 @@ def _get_all_task_files():
 
     base_dir = Path(__file__).parent / "data"
 
-    # 👉 agar specific task diya hai → wahi run karo
     if task_file:
         return [task_file]
 
-    # 👉 warna ALL tasks run karo (THIS IS IMPORTANT)
     return [
-    f.name for f in base_dir.glob("*.json")
-    if f.name.startswith("task_")
+        f.name for f in base_dir.glob("*.json")
+        if f.name.startswith("task_")
     ]
 
-# ✅ force stdout flushing
 sys.stdout.reconfigure(line_buffering=True)
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:7860")
 MODEL_NAME = os.getenv("MODEL_NAME", "dummy")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-
 BASE_URL = API_BASE_URL
 RESET_RETRY_LIMIT = 20
 COMMON_MERCHANT_WORDS = {"tech", "supplies", "store", "office", "supply"}
 
 
-# ✅ NEW FIX: wait for server
 def _wait_for_server():
     for _ in range(20):
         try:
@@ -46,26 +41,21 @@ def _wait_for_server():
             time.sleep(0.5)
     raise RuntimeError("Server not ready")
 
+
 def _call_llm_once():
     try:
         base_url = os.environ.get("API_BASE_URL")
         api_key = os.environ.get("API_KEY")
 
-        # ✅ only call if env vars exist (Phase 2)
         if not base_url or not api_key:
             return
 
-        client = OpenAI(
-            base_url=base_url,
-            api_key=api_key
-        )
-
+        client = OpenAI(base_url=base_url, api_key=api_key)
         client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "audit"}],
             max_tokens=5
         )
-
     except Exception:
         pass
 
@@ -203,12 +193,7 @@ def _is_over_policy_cap(item: dict, company_policy: dict) -> bool:
 
 def _is_ambiguous(item: dict) -> bool:
     description = (item.get("description") or "").lower()
-    ambiguous_terms = (
-        "unclear",
-        "unknown",
-        "not specified",
-        "adjustment",
-    )
+    ambiguous_terms = ("unclear", "unknown", "not specified", "adjustment")
     return any(term in description for term in ambiguous_terms)
 
 
@@ -232,11 +217,9 @@ def _split_transaction_item_ids(line_items: list[dict], company_policy: dict) ->
     for items in grouped.values():
         if len(items) < 2:
             continue
-
         amounts = [float(i.get("amount", 0)) for i in items]
         if not all(amount <= float(meal_cap) for amount in amounts):
             continue
-
         if sum(amounts) > float(meal_cap):
             flagged.update(i["item_id"] for i in items)
 
@@ -300,7 +283,6 @@ def _build_fraud_signals(observation: dict) -> dict[str, dict[str, Any]]:
 
     for item in line_items:
         item_id = item["item_id"]
-
         reason: str | None = None
         priority: int | None = None
 
@@ -360,10 +342,7 @@ def _next_action(observation: dict) -> dict:
 
     if remaining_steps <= 2:
         decision = "partial_reject" if flagged_ids else "approve"
-        return {
-            "action_type": "set_batch_decision",
-            "decision": decision,
-        }
+        return {"action_type": "set_batch_decision", "decision": decision}
 
     signals = _build_fraud_signals(observation)
 
@@ -390,31 +369,21 @@ def _next_action(observation: dict) -> dict:
     candidates.sort(key=lambda x: (x[0], x[1]))
     if candidates:
         _, item_id, reason = candidates[0]
-        return {
-            "action_type": "flag_item",
-            "item_id": item_id,
-            "reason_code": reason,
-        }
+        return {"action_type": "flag_item", "item_id": item_id, "reason_code": reason}
 
     for item in observation.get("line_items", []):
         item_id = item["item_id"]
         if item_id in processed_ids:
             continue
         if signals[item_id]["reason"] is None and not signals[item_id]["ambiguous"]:
-            return {
-                "action_type": "approve_item",
-                "item_id": item_id,
-            }
+            return {"action_type": "approve_item", "item_id": item_id}
 
     decision = "partial_reject" if flagged_ids else "approve"
-    return {
-        "action_type": "set_batch_decision",
-        "decision": decision,
-    }
+    return {"action_type": "set_batch_decision", "decision": decision}
 
 
 def main() -> None:
-    all_rewards = []
+    all_rewards: list[str] = []
     total_steps = 0
     overall_success = True
 
@@ -424,14 +393,12 @@ def main() -> None:
 
         task_files = _get_all_task_files()
 
-        for task_file in task_files:
+        for task_file in task_files:               # ✅ FIX 1: loop is inside the outer try
             rewards: list[str] = []
             steps = 0
-            success = False
             task_id = "unknown"
 
             try:
-                # 🔥 set env dynamically
                 os.environ["AUDITGUARD_TASK_FILE"] = task_file
 
                 obs_payload = _reset_with_optional_forced_task()
@@ -459,7 +426,6 @@ def main() -> None:
                     info = res.get("info", {})
                     error = info.get("error")
 
-                    # 🚨 FIX: avoid 0.0 and 1.0
                     if reward <= 0.0:
                         reward = 0.01
                     elif reward >= 1.0:
@@ -473,30 +439,32 @@ def main() -> None:
                         flush=True
                     )
 
-                success = True
+            except Exception as task_exc:          # ✅ FIX 2: per-task exception handler
+                print(f"[ERROR] task={task_id} error={task_exc}", flush=True)
+                overall_success = False
+
+            finally:                               # ✅ FIX 3: accumulate after each task
+                all_rewards.extend(rewards)
+                total_steps += steps
+
+    except Exception as exc:
+        print(f"FATAL: {exc}", flush=True)
+        overall_success = False
+
+    finally:                                       # ✅ FIX 4: outer finally for final summary
+        final_score = sum(float(r) for r in all_rewards) / max(1, len(all_rewards))
+        final_score = max(0.011, min(0.989, final_score))
+
+        print(json.dumps({
+            "task_id": "overall",
+            "score": float(final_score)
+        }), flush=True)
+
+        print(
+            f"[END] success={_format_done(overall_success)} steps={total_steps} rewards={','.join(all_rewards)}",
+            flush=True
+        )
 
 
-
-        except Exception as exc:
-            print(f"FATAL: {exc}", flush=True)
-            overall_success = False
-
-        finally:
-        # ✅ compute score from ALL rewards (important)
-            final_score = sum(float(r) for r in all_rewards) / max(1, len(all_rewards))
-
-        # ✅ strict clamp
-            final_score = max(0.011, min(0.989, final_score))
-
-        # ✅ required output
-            print(json.dumps({
-                "task_id": "overall",
-                "score": float(final_score)
-            }), flush=True)
-
-            print(
-                f"[END] success={_format_done(overall_success)} steps={total_steps} rewards={','.join(all_rewards)}",
-                flush=True
-            )
 if __name__ == "__main__":
     main()
