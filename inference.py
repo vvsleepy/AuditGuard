@@ -7,6 +7,13 @@ import requests
 from openai import OpenAI
 import sys
 from pathlib import Path
+import sys
+import os
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
+
+os.environ["PYTHONUNBUFFERED"] = "1"
 
 def _get_all_task_files():
     task_file = os.getenv("AUDITGUARD_TASK_FILE")
@@ -41,25 +48,24 @@ def _wait_for_server():
             time.sleep(1)
 
     # DO NOT CRASH
-    print("WARNING: server not ready, continuing anyway...", flush=True)
+    return
 
+# def _call_llm_once():
+#     try:
+#         base_url = os.environ.get("API_BASE_URL")
+#         api_key = os.environ.get("API_KEY")
 
-def _call_llm_once():
-    try:
-        base_url = os.environ.get("API_BASE_URL")
-        api_key = os.environ.get("API_KEY")
+#         if not base_url or not api_key:
+#             return
 
-        if not base_url or not api_key:
-            return
-
-        client = OpenAI(base_url=base_url, api_key=api_key)
-        client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": "audit"}],
-            max_tokens=5
-        )
-    except Exception:
-        pass
+#         client = OpenAI(base_url=base_url, api_key=api_key)
+#         client.chat.completions.create(
+#             model="gpt-3.5-turbo",
+#             messages=[{"role": "user", "content": "audit"}],
+#             max_tokens=5
+#         )
+#     except Exception:
+#         pass
 
 
 def _format_done(value: bool) -> str:
@@ -391,7 +397,7 @@ def main() -> None:
 
     try:
         _wait_for_server()
-        _call_llm_once()
+        # _call_llm_once()
 
         task_files = _get_all_task_files()
 
@@ -472,4 +478,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        print("[END] success=false steps=0 rewards=", flush=True)
