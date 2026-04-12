@@ -19,5 +19,5 @@ COPY . /app
 
 EXPOSE 7860
 
-# ✅ RUN BOTH SERVER + INFERENCE
-CMD bash -c "uvicorn server.app:app --host 0.0.0.0 --port 7860 & sleep 3 && python inference.py"
+# ✅ ONLY SERVER
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
