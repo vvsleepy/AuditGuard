@@ -13,7 +13,7 @@ try:
         ReasonCode,
         StepInfo,
     )
-    from .grading import grade_episode
+    from .graders import grade_episode
 except ImportError:
     from models import (  # type: ignore
         ActionType,
@@ -24,7 +24,7 @@ except ImportError:
         ReasonCode,
         StepInfo,
     )
-    from grading import grade_episode  # type: ignore
+    from graders import grade_episode  # type: ignore
 
 
 class AuditGuardEnvironment:
