@@ -21,4 +21,4 @@ EXPOSE 7860
 
 # ✅ ONLY SERVER
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 7860 & sleep 2 && python inference.py"]
+CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port 7860 & sleep 2 && python inference.py"]
