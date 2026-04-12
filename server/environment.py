@@ -13,6 +13,7 @@ try:
         ReasonCode,
         StepInfo,
     )
+    from .grading import grade_episode
 except ImportError:
     from models import (  # type: ignore
         ActionType,
@@ -23,6 +24,7 @@ except ImportError:
         ReasonCode,
         StepInfo,
     )
+    from grading import grade_episode  # type: ignore
 
 
 class AuditGuardEnvironment:
@@ -254,15 +256,26 @@ class AuditGuardEnvironment:
     def _handle_finalize(self) -> float:
         assert self.current_task is not None
 
-        reward = 0.0
-        if self.state.step_count < 2:
-            reward -= 0.05
+        predicted_flags = {
+            item["item_id"]: item["reason"]
+            for item in self.flagged_items
+        }
 
-        if self.batch_decision is None:
-            return reward - 0.05
-        if self.batch_decision == self.current_task.ground_truth.final_decision:
-            return reward + 0.20
-        return reward - 0.05
+        stats = {
+            "approvals": self.approved_items,
+            "requests": self.requests_sent,
+            "final_decision": self.batch_decision,
+            "steps": self.state.step_count,
+            "max_steps": self.state.max_steps,
+        }
+
+        score = grade_episode(
+            predicted_flags,
+            self.current_task.ground_truth.model_dump(),
+            stats,
+        )
+
+        return score
 
     def _build_observation(self) -> dict[str, Any]:
         if self.current_task is None:
