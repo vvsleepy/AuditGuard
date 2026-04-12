@@ -10,7 +10,7 @@ import sys
 # ✅ FIX 1: force stdout flushing
 sys.stdout.reconfigure(line_buffering=True)
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:7860")
 MODEL_NAME = os.getenv("MODEL_NAME", "dummy")
 HF_TOKEN = os.getenv("HF_TOKEN")
 OPENAI_CLIENT = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN) if HF_TOKEN else None
