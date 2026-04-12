@@ -1,0 +1,85 @@
+{
+  "task_id": "task_easy_001",
+  "difficulty": "easy",
+  "policy": {
+    "meal_cap": 50.0,
+    "require_receipt_over": 25.0,
+    "forbidden_merchants": [],
+    "allowed_categories": [
+      "meal",
+      "travel",
+      "office"
+    ],
+    "required_fields": [
+      "merchant",
+      "date",
+      "currency",
+      "employee_id"
+    ]
+  },
+  "line_items": [
+    {
+      "item_id": "item_1",
+      "amount": 68.5,
+      "category": "meal",
+      "receipt_attached": true,
+      "merchant": "City Grill",
+      "date": "2026-03-10",
+      "currency": "USD",
+      "employee_id": "emp_100",
+      "description": "Client lunch"
+    },
+    {
+      "item_id": "item_2",
+      "amount": 41.2,
+      "category": "meal",
+      "receipt_attached": false,
+      "merchant": "Fresh Bowl",
+      "date": "2026-03-11",
+      "currency": "USD",
+      "employee_id": "emp_101",
+      "description": "Team dinner"
+    },
+    {
+      "item_id": "item_3",
+      "amount": 24.9,
+      "category": "office",
+      "receipt_attached": false,
+      "merchant": "Paper Point",
+      "date": "2026-03-12",
+      "currency": "USD",
+      "employee_id": "emp_102",
+      "description": "Printer paper"
+    }
+  ],
+  "receipt_metadata": [
+    {
+      "item_id": "item_1",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_2",
+      "receipt_present": false
+    },
+    {
+      "item_id": "item_3",
+      "receipt_present": false
+    }
+  ],
+  "ground_truth": {
+    "violations": [
+      {
+        "item_id": "item_1",
+        "reason": "OVER_POLICY_CAP"
+      },
+      {
+        "item_id": "item_2",
+        "reason": "MISSING_RECEIPT"
+      }
+    ],
+    "clean_items": [
+      "item_3"
+    ],
+    "final_decision": "partial_reject"
+  }
+}

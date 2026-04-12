@@ -1,0 +1,99 @@
+{
+  "task_id": "task_medium_002",
+  "difficulty": "medium",
+  "policy": {
+    "meal_cap": 75.0,
+    "require_receipt_over": 30.0,
+    "forbidden_merchants": [],
+    "allowed_categories": [
+      "meal",
+      "travel",
+      "lodging",
+      "office"
+    ],
+    "required_fields": [
+      "merchant",
+      "date",
+      "currency",
+      "employee_id"
+    ]
+  },
+  "line_items": [
+    {
+      "item_id": "item_1",
+      "amount": 120.0,
+      "category": "office",
+      "receipt_attached": true,
+      "merchant": "NorthStar Tech Supplies",
+      "date": "2026-02-12",
+      "currency": "USD",
+      "employee_id": "emp_410",
+      "description": "Monitor arm"
+    },
+    {
+      "item_id": "item_2",
+      "amount": 120.0,
+      "category": "office",
+      "receipt_attached": true,
+      "merchant": "NST Office Supply",
+      "date": "2026-02-12",
+      "currency": "USD",
+      "employee_id": "emp_410",
+      "description": "Desk mount accessory"
+    },
+    {
+      "item_id": "item_3",
+      "amount": 48.0,
+      "category": "travel",
+      "receipt_attached": true,
+      "merchant": "Metro Cab",
+      "date": "2026-02-13",
+      "currency": "USD",
+      "employee_id": "emp_411",
+      "description": "Airport transfer"
+    },
+    {
+      "item_id": "item_4",
+      "amount": 48.0,
+      "category": "travel",
+      "receipt_attached": true,
+      "merchant": "Metro Cab",
+      "date": "2026-02-13",
+      "currency": "USD",
+      "employee_id": "emp_411",
+      "description": "Airport transfer duplicate"
+    },
+    {
+      "item_id": "item_5",
+      "amount": 34.5,
+      "category": "meal",
+      "receipt_attached": true,
+      "merchant": "Cafe Rowan",
+      "date": "2026-02-14",
+      "currency": "USD",
+      "employee_id": "emp_412",
+      "description": "Team lunch"
+    }
+  ],
+  "ground_truth": {
+    "violations": [
+      {
+        "item_id": "item_1",
+        "reason": "MERCHANT_LAUNDERING"
+      },
+      {
+        "item_id": "item_2",
+        "reason": "MERCHANT_LAUNDERING"
+      },
+      {
+        "item_id": "item_4",
+        "reason": "DUPLICATE_EXPENSE"
+      }
+    ],
+    "clean_items": [
+      "item_3",
+      "item_5"
+    ],
+    "final_decision": "partial_reject"
+  }
+}

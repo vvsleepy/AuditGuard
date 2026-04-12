@@ -1,0 +1,118 @@
+{
+  "task_id": "task_medium_001",
+  "difficulty": "medium",
+  "policy": {
+    "meal_cap": 75.0,
+    "require_receipt_over": 30.0,
+    "forbidden_merchants": [],
+    "allowed_categories": [
+      "meal",
+      "travel",
+      "lodging",
+      "office"
+    ],
+    "required_fields": [
+      "merchant",
+      "date",
+      "currency",
+      "employee_id"
+    ]
+  },
+  "line_items": [
+    {
+      "item_id": "item_1",
+      "amount": 42.0,
+      "category": "travel",
+      "receipt_attached": true,
+      "merchant": "Metro Cab",
+      "date": "2026-02-18",
+      "currency": "USD",
+      "employee_id": "emp_200",
+      "description": "Airport transfer to client site - Terminal B (08:10 AM)"
+    },
+    {
+      "item_id": "item_2",
+      "amount": 42.0,
+      "category": "travel",
+      "receipt_attached": true,
+      "merchant": "Metro Cab",
+      "date": "2026-02-18",
+      "currency": "USD",
+      "employee_id": "emp_200",
+      "description": "Conference arrival ride from airport queue (08:25 AM)"
+    },
+    {
+      "item_id": "item_3",
+      "amount": 58.4,
+      "category": "meal",
+      "receipt_attached": true,
+      "merchant": "StayNest Hotel",
+      "date": "2026-02-19",
+      "currency": "USD",
+      "employee_id": "emp_201",
+      "description": "Hotel stay submitted under meal category"
+    },
+    {
+      "item_id": "item_4",
+      "amount": 39.5,
+      "category": "travel",
+      "receipt_attached": true,
+      "merchant": "Metro Cab",
+      "date": "2026-02-20",
+      "currency": "USD",
+      "employee_id": "emp_200",
+      "description": "Morning ride from hotel to conference venue"
+    },
+    {
+      "item_id": "item_5",
+      "amount": 39.9,
+      "category": "travel",
+      "receipt_attached": true,
+      "merchant": "Metro Cab",
+      "date": "2026-02-21",
+      "currency": "USD",
+      "employee_id": "emp_200",
+      "description": "Late-night ride after client dinner, route note unclear"
+    }
+  ],
+  "receipt_metadata": [
+    {
+      "item_id": "item_1",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_2",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_3",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_4",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_5",
+      "receipt_present": true
+    }
+  ],
+  "ground_truth": {
+    "violations": [
+      {
+        "item_id": "item_2",
+        "reason": "DUPLICATE_EXPENSE"
+      },
+      {
+        "item_id": "item_3",
+        "reason": "CATEGORY_MISMATCH"
+      }
+    ],
+    "clean_items": [
+      "item_1",
+      "item_4",
+      "item_5"
+    ],
+    "final_decision": "partial_reject"
+  }
+}

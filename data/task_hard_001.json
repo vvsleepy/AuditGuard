@@ -1,0 +1,229 @@
+{
+  "task_id": "task_hard_001",
+  "difficulty": "hard",
+  "policy": {
+    "meal_cap": 80.0,
+    "require_receipt_over": 25.0,
+    "forbidden_merchants": [
+      "Lucky Market Gift Shop"
+    ],
+    "allowed_categories": [
+      "meal",
+      "travel",
+      "lodging",
+      "office",
+      "transport"
+    ],
+    "required_fields": [
+      "merchant",
+      "date",
+      "currency",
+      "employee_id"
+    ]
+  },
+  "line_items": [
+    {
+      "item_id": "item_1",
+      "amount": 198.75,
+      "category": "travel",
+      "receipt_attached": true,
+      "merchant": "SkyLine Air",
+      "date": "2026-01-14",
+      "currency": "USD",
+      "employee_id": "emp_300",
+      "description": "Regional flight change fee for weather-disrupted client visit"
+    },
+    {
+      "item_id": "item_2",
+      "amount": 89.99,
+      "category": "office",
+      "receipt_attached": true,
+      "merchant": "NorthStar Electronics",
+      "date": "2026-01-15",
+      "currency": "USD",
+      "employee_id": "emp_301",
+      "description": "Project materials for onsite setup"
+    },
+    {
+      "item_id": "item_3",
+      "amount": 74.95,
+      "category": "meal",
+      "receipt_attached": true,
+      "merchant": "Blue Olive Catering",
+      "date": "2026-01-16",
+      "currency": "USD",
+      "employee_id": "emp_302",
+      "description": "Team dinner charge part 1"
+    },
+    {
+      "item_id": "item_4",
+      "amount": 74.95,
+      "category": "meal",
+      "receipt_attached": true,
+      "merchant": "Blue Olive Catering",
+      "date": "2026-01-16",
+      "currency": "USD",
+      "employee_id": "emp_302",
+      "description": "Team dinner charge part 2"
+    },
+    {
+      "item_id": "item_5",
+      "amount": 74.95,
+      "category": "meal",
+      "receipt_attached": true,
+      "merchant": "Blue Olive Catering",
+      "date": "2026-01-16",
+      "currency": "USD",
+      "employee_id": "emp_302",
+      "description": "Team dinner charge part 3"
+    },
+    {
+      "item_id": "item_6",
+      "amount": 126.4,
+      "category": "office",
+      "receipt_attached": true,
+      "merchant": "NorthStar Tech Supplies",
+      "date": "2026-01-18",
+      "currency": "USD",
+      "employee_id": "emp_304",
+      "description": "Docking station and adapters"
+    },
+    {
+      "item_id": "item_7",
+      "amount": 126.4,
+      "category": "office",
+      "receipt_attached": true,
+      "merchant": "NST Office Supply",
+      "date": "2026-01-18",
+      "currency": "USD",
+      "employee_id": "emp_304",
+      "description": "Desk setup bundle"
+    },
+    {
+      "item_id": "item_8",
+      "amount": 60.0,
+      "category": "meal",
+      "receipt_attached": true,
+      "merchant": "Harbor House",
+      "date": "2026-01-17",
+      "currency": "USD",
+      "employee_id": "emp_303",
+      "description": "Client dinner before contract review"
+    },
+    {
+      "item_id": "item_9",
+      "amount": 47.5,
+      "category": "travel",
+      "receipt_attached": false,
+      "merchant": "CityLink Car Service",
+      "date": "2026-01-19",
+      "currency": "USD",
+      "employee_id": "emp_305",
+      "description": "Ground transport for external meeting, destination not specified"
+    },
+    {
+      "item_id": "item_10",
+      "amount": 36.2,
+      "category": "office",
+      "receipt_attached": true,
+      "merchant": "Lucky Market Gift Shop",
+      "date": "2026-01-19",
+      "currency": "USD",
+      "employee_id": "emp_306",
+      "description": "Office snacks and gift supplies"
+    },
+    {
+      "item_id": "item_11",
+      "amount": 79.8,
+      "category": "meal",
+      "receipt_attached": true,
+      "merchant": "Blue Harbor Bistro",
+      "date": "2026-01-20",
+      "currency": "USD",
+      "employee_id": "emp_307",
+      "description": "Late client dinner ending near policy cap"
+    }
+  ],
+  "receipt_metadata": [
+    {
+      "item_id": "item_1",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_2",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_3",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_4",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_5",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_6",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_7",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_8",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_9",
+      "receipt_present": false
+    },
+    {
+      "item_id": "item_10",
+      "receipt_present": true
+    },
+    {
+      "item_id": "item_11",
+      "receipt_present": true
+    }
+  ],
+  "ground_truth": {
+    "violations": [
+      {
+        "item_id": "item_3",
+        "reason": "SPLIT_TRANSACTION"
+      },
+      {
+        "item_id": "item_4",
+        "reason": "SPLIT_TRANSACTION"
+      },
+      {
+        "item_id": "item_5",
+        "reason": "SPLIT_TRANSACTION"
+      },
+      {
+        "item_id": "item_6",
+        "reason": "MERCHANT_LAUNDERING"
+      },
+      {
+        "item_id": "item_7",
+        "reason": "MERCHANT_LAUNDERING"
+      },
+      {
+        "item_id": "item_10",
+        "reason": "FORBIDDEN_MERCHANT"
+      }
+    ],
+    "clean_items": [
+      "item_1",
+      "item_2",
+      "item_8",
+      "item_9",
+      "item_11"
+    ],
+    "final_decision": "partial_reject"
+  }
+}
