@@ -478,8 +478,8 @@ def main() -> None:
 
 
         except Exception as exc:
-        print(f"FATAL: {exc}", flush=True)
-        overall_success = False
+            print(f"FATAL: {exc}", flush=True)
+            overall_success = False
 
         finally:
         # ✅ compute score from ALL rewards (important)
