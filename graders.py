@@ -1,13 +1,16 @@
 def compute_f1(tp, fp, fn):
     precision = tp / (tp + fp) if (tp + fp) else 0
     recall = tp / (tp + fn) if (tp + fn) else 0
-    if precision + recall == 0:
-        return 0.01
-    score = 2 * (precision * recall) / (precision + recall)
-    if score >= 1:
-        return 0.99
-    return score
 
+    if precision + recall == 0:
+        return 0.011
+
+    score = 2 * (precision * recall) / (precision + recall)
+
+    # 🔥 clamp here also
+    score = max(0.011, min(0.989, score))
+
+    return score
 
 def grade_episode(predicted_flags, ground_truth, stats):
     gt_flags = {v["item_id"]: v["reason"] for v in ground_truth["violations"]}
@@ -36,8 +39,11 @@ def grade_episode(predicted_flags, ground_truth, stats):
 
     fraud_bonus = (
         0.05
-        if any(r in ["MERCHANT_LAUNDERING", "SPLIT_TRANSACTION"] for r in predicted_flags.values())
-        else 0.01
+        if any(
+            r in ["MERCHANT_LAUNDERING", "SPLIT_TRANSACTION"]
+            for r in predicted_flags.values()
+        )
+        else 0.0
     )
 
     budget_efficiency = 1.0 - (stats["steps"] / stats["max_steps"])
@@ -55,9 +61,16 @@ def grade_episode(predicted_flags, ground_truth, stats):
         + 0.05 * budget_efficiency
     )
 
-    if score <= 0:
-        return 0.01
-    if score >= 1:
-        return 0.99
+# 🔥 FINAL SAFE CLAMP (MANDATORY)
+
+
+
+# hard clamp inside (0,1)
+# 🔥 FINAL ULTRA SAFE CLAMP
+
+    if not isinstance(score, float):
+        score = float(score)
+
+    score = max(0.011, min(0.989, score))
 
     return score
