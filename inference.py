@@ -33,13 +33,15 @@ COMMON_MERCHANT_WORDS = {"tech", "supplies", "store", "office", "supply"}
 
 
 def _wait_for_server():
-    for _ in range(20):
+    for _ in range(60):  # wait longer
         try:
-            requests.get(f"{BASE_URL}/docs", timeout=1)
+            requests.get(f"{BASE_URL}/docs", timeout=2)
             return
         except:
-            time.sleep(0.5)
-    raise RuntimeError("Server not ready")
+            time.sleep(1)
+
+    # DO NOT CRASH
+    print("WARNING: server not ready, continuing anyway...", flush=True)
 
 
 def _call_llm_once():
@@ -404,7 +406,6 @@ def main() -> None:
                 obs_payload = _reset_with_optional_forced_task()
                 obs = obs_payload["observation"]
                 task_id = obs.get("task_id", "unknown")
-
                 print(f"[START] task={task_id} env=auditguard model=dummy", flush=True)
                 done = bool(obs.get("done", False))
 
