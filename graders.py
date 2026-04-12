@@ -24,14 +24,10 @@ def grade_episode(predicted_flags, ground_truth, stats):
     approval_accuracy = len(
         [i for i in stats["approvals"] if i in ground_truth["clean_items"]]
     ) / max(1, len(stats["approvals"]))
-    if approval_accuracy <= 0:
-        approval_accuracy = 0.01
-    elif approval_accuracy >= 1:
-        approval_accuracy = 0.99
+    approval_accuracy = max(0.011, min(0.989, approval_accuracy))
 
-    request_quality = min(0.99, len(stats["requests"]) / 3)
-    if request_quality <= 0:
-        request_quality = 0.01
+    request_quality = len(stats["requests"]) / 3
+    request_quality = max(0.011, min(0.989, request_quality))
 
     final_decision_score = (
         0.99 if stats["final_decision"] == ground_truth["final_decision"] else 0.01
@@ -47,10 +43,7 @@ def grade_episode(predicted_flags, ground_truth, stats):
     )
 
     budget_efficiency = 1.0 - (stats["steps"] / stats["max_steps"])
-    if budget_efficiency <= 0:
-        budget_efficiency = 0.01
-    elif budget_efficiency >= 1:
-        budget_efficiency = 0.99
+    budget_efficiency = max(0.011, min(0.989, budget_efficiency))
 
     score = (
         0.35 * f1
