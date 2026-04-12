@@ -30,7 +30,7 @@ def grade_episode(predicted_flags, ground_truth, stats):
     request_quality = max(0.011, min(0.989, request_quality))
 
     final_decision_score = (
-        0.99 if stats["final_decision"] == ground_truth["final_decision"] else 0.01
+        0.989 if stats["final_decision"] == ground_truth["final_decision"] else 0.011
     )
 
     fraud_bonus = (
